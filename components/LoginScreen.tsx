@@ -58,7 +58,7 @@ export function LoginScreen() {
           <div className="doc-stage" aria-hidden="true">
             <div className="doc-in">
               <div className="doc-figure">
-                <img alt="" src="/images/login-mascot.webp" />
+                <img alt="" src="/images/login-mascot.webp?v=2" />
               </div>
             </div>
             <div className="doc-desk" />
