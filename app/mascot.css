@@ -1,0 +1,24 @@
+
+#mascotLoader{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 35%,#1d5a6b 0%,#14405c 38%,#102b46 75%,#0b1f33 100%);
+  transition:opacity .7s ease,visibility .7s ease}
+#mascotLoader.out{opacity:0;visibility:hidden}
+#mascotLoader:before{content:"";position:absolute;inset:0;background:
+  radial-gradient(circle at 15% 85%,rgba(111,214,196,.10),transparent 35%),
+  radial-gradient(circle at 85% 15%,rgba(59,130,246,.12),transparent 35%);pointer-events:none}
+#mascotLoader .stage{position:relative;width:min(84vw,380px);aspect-ratio:360/420;animation:kjRise .9s cubic-bezier(.2,.8,.2,1) both}
+#mascotLoader svg{width:100%;height:100%;display:block;overflow:visible}
+#mascotLoader .bob{transform-box:fill-box;transform-origin:50% 100%;animation:mlBob 1.6s ease-in-out infinite}
+#mascotLoader .bob2{animation-delay:-.8s}
+#mascotLoader .wave{transform-box:fill-box;transform-origin:0% 100%;animation:mlWave 1.2s ease-in-out infinite}
+#mascotLoader .cross{transform-box:fill-box;transform-origin:50% 50%;animation:mlPulse 2.4s ease-in-out infinite}
+#mascotLoader .shadow{transform-box:fill-box;transform-origin:50% 50%;animation:mlShadow 1.6s ease-in-out infinite}
+#mascotLoader .track{position:absolute;left:50%;bottom:-6px;width:min(60vw,240px);height:4px;transform:translateX(-50%);border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+#mascotLoader .track i{display:block;height:100%;width:40%;border-radius:4px;background:linear-gradient(90deg,#6fd6c4,#3b82f6);animation:mlSlide 1.6s ease-in-out infinite}
+@keyframes kjRise{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes mlBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes mlWave{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(16deg)}}
+@keyframes mlPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+@keyframes mlShadow{0%,100%{transform:scale(1);opacity:.35}50%{transform:scale(.82);opacity:.2}}
+@keyframes mlSlide{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+@media (prefers-reduced-motion:reduce){#mascotLoader *{animation:none!important}}
