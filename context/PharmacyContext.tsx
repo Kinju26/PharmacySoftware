@@ -20,7 +20,13 @@ import type {
   UserRecord,
 } from "@/lib/types";
 import {
+  clearRememberedEmail,
+  getRememberedEmail,
+  setRememberedEmail,
+} from "@/lib/auth-security";
+import {
   AUTH_KEY,
+  AUTH_META_KEY,
   companyCodeFromName,
   DB_KEY,
   downloadText,
@@ -41,7 +47,9 @@ type PharmacyContextValue = {
   toast: string | null;
   selectedBranches: string[] | null;
   showToast: (msg: string) => void;
-  login: (id: string, password: string) => string | null;
+  login: (id: string, password: string, options?: { remember?: boolean }) => string | null;
+  verifyCredentials: (id: string, password: string) => string | null;
+  completeLogin: (email: string, options?: { remember?: boolean }) => void;
   register: (name: string, email: string, password: string) => string | null;
   logout: () => void;
   setSelectedBranches: (names: string[] | null) => void;
@@ -217,7 +225,12 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      setCurrentUser(sessionStorage.getItem(AUTH_KEY));
+      const remembered = getRememberedEmail();
+      const sessionUser = sessionStorage.getItem(AUTH_KEY);
+      setCurrentUser(remembered || sessionUser);
+      if (remembered) {
+        sessionStorage.setItem(AUTH_KEY, remembered);
+      }
     } catch {
       setCurrentUser(null);
     }
@@ -225,17 +238,31 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     setReady(true);
   }, [persistDb]);
 
-  const login = useCallback(
+  const verifyCredentials = useCallback(
     (id: string, password: string) => {
       const email = id.trim().toLowerCase();
       const user = authUsers.find((x) => x.email === email);
-      if (!user || user.password !== password) {
-        return "Invalid User ID or Password. Please try again.";
-      }
+      if (!user || user.password !== password) return "Invalid email or password";
       if (user.status !== "active") return "This account is inactive.";
+      return null;
+    },
+    [authUsers],
+  );
+
+  const completeLogin = useCallback(
+    (emailRaw: string, options?: { remember?: boolean }) => {
+      const email = emailRaw.trim().toLowerCase();
+      const user = authUsers.find((x) => x.email === email);
+      if (!user) return;
       setCurrentUser(user.email);
       try {
         sessionStorage.setItem(AUTH_KEY, user.email);
+        localStorage.setItem(
+          AUTH_META_KEY,
+          JSON.stringify({ email: user.email, at: Date.now() }),
+        );
+        if (options?.remember) setRememberedEmail(user.email);
+        else clearRememberedEmail();
       } catch {
         /* ignore */
       }
@@ -250,9 +277,18 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
         persistDb(next);
         return next;
       });
-      return null;
     },
     [auditInto, authUsers, persistDb],
+  );
+
+  const login = useCallback(
+    (id: string, password: string, options?: { remember?: boolean }) => {
+      const err = verifyCredentials(id, password);
+      if (err) return err;
+      completeLogin(id, options);
+      return null;
+    },
+    [completeLogin, verifyCredentials],
   );
 
   const register = useCallback(
@@ -290,6 +326,8 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     setCurrentUser(null);
     try {
       sessionStorage.removeItem(AUTH_KEY);
+      localStorage.removeItem(AUTH_META_KEY);
+      clearRememberedEmail();
     } catch {
       /* ignore */
     }
@@ -450,6 +488,8 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
       selectedBranches,
       showToast,
       login,
+      verifyCredentials,
+      completeLogin,
       register,
       logout,
       setSelectedBranches,
@@ -472,6 +512,8 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
       selectedBranches,
       showToast,
       login,
+      verifyCredentials,
+      completeLogin,
       register,
       logout,
       setSelectedBranches,

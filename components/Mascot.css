@@ -1,0 +1,110 @@
+/* Shared styles for the mascot used on Login + Sign up (and anywhere else). */
+
+.lm-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.lm-hero.lm-lg { height: 150px; margin-bottom: 2px; }  /* login "red box" area */
+.lm-hero.lm-md { height: 110px; margin-bottom: 2px; }  /* sign up (smaller heading area) */
+
+/* ---------- mascot ---------- */
+.lm-mascot {
+  flex: none;
+  height: 100%;
+  transform-origin: 50% 92%;
+  /* pop in -> wave "hi" twice -> breathe forever */
+  animation:
+    lm-enter 0.9s cubic-bezier(0.3, 1.4, 0.5, 1) both,
+    lm-wave 1.1s ease-in-out 0.9s 2,
+    lm-breathe 3.2s ease-in-out 3.2s infinite;
+}
+.lm-mascot img {
+  height: 100%;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 6px 6px rgba(30, 40, 90, 0.25));
+}
+.lm-lg .lm-mascot { height: 138px; }
+.lm-md .lm-mascot { height: 108px; }
+.lm-mascot.lm-tilt { animation: lm-tilt 0.5s ease-out forwards; }
+
+@keyframes lm-enter {
+  from { opacity: 0; transform: translateY(40px) scale(0.85); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes lm-breathe {
+  0%, 100% { transform: scale(1, 1); }
+  50%      { transform: scale(1.025, 1.04); }
+}
+@keyframes lm-wave {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  20%      { transform: rotate(-8deg) translateY(-8px); }
+  50%      { transform: rotate(8deg) translateY(-5px); }
+  75%      { transform: rotate(-5deg) translateY(-2px); }
+}
+@keyframes lm-tilt {
+  to { transform: rotate(-7deg) translateX(-6px); }
+}
+
+/* ---------- speech bubble ---------- */
+.lm-bubble {
+  position: relative;
+  flex: 1;
+  align-self: center;
+  margin-top: -6px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: #eef2ff;
+  color: #1b1f4b;
+  border-radius: 16px 16px 16px 4px;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.2px;
+  transform-origin: 0 50%;
+  animation: lm-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+.lm-lg .lm-bubble { font-size: 22px; min-height: 76px; padding: 14px 18px; border-radius: 18px 18px 18px 4px; }
+.lm-bubble::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  bottom: 14px;
+  border: 9px solid transparent;
+  border-right-color: #eef2ff;
+  border-left: 0;
+  border-bottom-width: 0;
+}
+@keyframes lm-pop {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- confetti (success) ---------- */
+.lm-confetti {
+  position: absolute;
+  left: 40px;
+  top: 20px;
+  pointer-events: none;
+  z-index: 5;
+}
+.lm-confetti span {
+  position: absolute;
+  font-size: 22px;
+  animation: lm-fly 1.5s ease-out forwards;
+}
+@keyframes lm-fly {
+  from { opacity: 1; transform: translate(0, 0) rotate(0); }
+  to   { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--r)); }
+}
+
+@media (max-width: 480px) {
+  .lm-bubble, .lm-lg .lm-bubble { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lm-mascot, .lm-bubble { animation: none; }
+}

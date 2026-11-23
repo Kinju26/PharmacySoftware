@@ -143,3 +143,11 @@ textarea.control{height:auto;padding:10px 12px;font:inherit;resize:vertical}
 a.quick{text-decoration:none;color:#365368}
 a.text-link{text-decoration:none}
 @media(max-width:720px){.nav a{white-space:nowrap;padding:8px 10px}}
+
+/* Session timeout warning */
+.session-warn{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:18px;background:rgba(11,34,56,.55)}
+.session-warn-card{width:min(100%,380px);background:#fff;border-radius:14px;padding:22px;box-shadow:0 22px 60px rgba(6,27,42,.35)}
+.session-warn-card h3{margin:0 0 8px;color:var(--navy);font-size:18px}
+.session-warn-card p{margin:0 0 16px;color:var(--muted);font-size:13px;line-height:1.5}
+.session-warn-btn{width:100%;border:0;border-radius:10px;padding:12px;background:var(--navy);color:#fff;font-weight:700;font-size:13px}
+.session-warn-btn:hover{background:var(--navy2)}

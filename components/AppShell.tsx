@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { SessionTimeoutWarning } from "@/components/SessionTimeoutWarning";
 import { Sidebar } from "@/components/Sidebar";
 import { Toast } from "@/components/Toast";
 import { Topbar } from "@/components/Topbar";
@@ -27,6 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="content">{children}</div>
       </main>
       <Toast />
+      <SessionTimeoutWarning />
     </div>
   );
 }
