@@ -16,6 +16,9 @@ export function SettingsView() {
   const [msg, setMsg] = useState("");
   const [logoPreview, setLogoPreview] = useState(co.logo || "");
   const [modal, setModal] = useState<{ record: BranchRecord | null } | null>(null);
+  const [inviteMsg, setInviteMsg] = useState("");
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -112,6 +115,77 @@ export function SettingsView() {
         <div className="modal-actions">
           <button className="btn btn-primary" type="submit">
             Save Company Details
+          </button>
+        </div>
+      </form>
+
+      <form
+        className="panel"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setInviteMsg("");
+          setInviteUrl("");
+          setInviteBusy(true);
+          const form = e.currentTarget;
+          try {
+            const res = await fetch("/api/auth/invite", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: (form.elements.namedItem("inviteName") as HTMLInputElement).value,
+                email: (form.elements.namedItem("inviteEmail") as HTMLInputElement).value,
+                role: (form.elements.namedItem("inviteRole") as HTMLSelectElement).value,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              setInviteMsg(data.error || "Could not create invite.");
+              return;
+            }
+            setInviteUrl(data.inviteUrl || "");
+            setInviteMsg("Invite created. Share the one-time link (expires in 48 hours).");
+            form.reset();
+          } catch {
+            setInviteMsg("Could not create invite.");
+          } finally {
+            setInviteBusy(false);
+          }
+        }}
+      >
+        <div className="panel-title">
+          <div>
+            <h3>Staff invite</h3>
+            <small className="panel-subtitle">
+              Admin-only. Creates a single-use link so staff can set a password and MFA. No public signup.
+            </small>
+          </div>
+        </div>
+        <div className="form-grid">
+          <div className="field">
+            <label>Full name</label>
+            <input className="control" name="inviteName" required />
+          </div>
+          <div className="field">
+            <label>Email</label>
+            <input className="control" type="email" name="inviteEmail" required />
+          </div>
+          <div className="field">
+            <label>Role</label>
+            <select className="control" name="inviteRole" defaultValue="pharmacist">
+              <option value="pharmacist">Pharmacist</option>
+              <option value="cashier">Cashier</option>
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <p style={{ fontSize: 12, minHeight: 16, margin: "6px 0 0", color: "#176c68" }}>{inviteMsg}</p>
+        {inviteUrl ? (
+          <p style={{ fontSize: 12, wordBreak: "break-all", color: "var(--navy)" }}>{inviteUrl}</p>
+        ) : null}
+        <div className="modal-actions">
+          <button className="btn btn-primary" type="submit" disabled={inviteBusy}>
+            Create invite link
           </button>
         </div>
       </form>

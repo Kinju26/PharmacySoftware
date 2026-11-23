@@ -12,7 +12,6 @@ import {
 import { configs, PREFIX, REQUIRED_FIELDS } from "@/lib/configs";
 import { seed } from "@/lib/seed";
 import type {
-  AuthUser,
   BranchRecord,
   CollectionKey,
   CompanyProfile,
@@ -20,19 +19,9 @@ import type {
   UserRecord,
 } from "@/lib/types";
 import {
-  clearRememberedEmail,
-  getRememberedEmail,
-  setRememberedEmail,
-} from "@/lib/auth-security";
-import {
-  AUTH_KEY,
-  AUTH_META_KEY,
   companyCodeFromName,
   DB_KEY,
   downloadText,
-  KJ_ADMIN_EMAIL,
-  KJ_ADMIN_PASS,
-  KJ_KEY,
   SEL_KEY,
   slug,
   uid,
@@ -47,11 +36,8 @@ type PharmacyContextValue = {
   toast: string | null;
   selectedBranches: string[] | null;
   showToast: (msg: string) => void;
-  login: (id: string, password: string, options?: { remember?: boolean }) => string | null;
-  verifyCredentials: (id: string, password: string) => string | null;
-  completeLogin: (email: string, options?: { remember?: boolean }) => void;
-  register: (name: string, email: string, password: string) => string | null;
-  logout: () => void;
+  setSessionUser: (email: string | null) => void;
+  logout: (options?: { timedOut?: boolean }) => Promise<void>;
   setSelectedBranches: (names: string[] | null) => void;
   saveCompany: (company: CompanyProfile) => void;
   upsertRecord: (type: CollectionKey, data: RecordLike, isEdit: boolean) => string | null;
@@ -79,52 +65,12 @@ function loadDb(): Database {
   return structuredClone(seed);
 }
 
-function loadAuthUsers(): AuthUser[] {
-  let list: AuthUser[] = [];
-  try {
-    list = JSON.parse(localStorage.getItem(KJ_KEY) || "[]") as AuthUser[];
-  } catch {
-    list = [];
-  }
-  if (!Array.isArray(list)) list = [];
-  let admin = list.find((u) => u.email === KJ_ADMIN_EMAIL);
-  if (!admin) {
-    admin = {
-      id: Date.now().toString(36),
-      name: "Admin",
-      email: KJ_ADMIN_EMAIL,
-      password: KJ_ADMIN_PASS,
-      role: "admin",
-      status: "active",
-    };
-    list.unshift(admin);
-  } else {
-    Object.assign(admin, {
-      name: "Admin",
-      email: KJ_ADMIN_EMAIL,
-      password: KJ_ADMIN_PASS,
-      role: "admin",
-      status: "active",
-    });
-  }
-  return list;
-}
-
-function persistAuthUsers(users: AuthUser[]) {
-  try {
-    localStorage.setItem(KJ_KEY, JSON.stringify(users));
-  } catch {
-    /* ignore */
-  }
-}
-
 export function PharmacyProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [db, setDb] = useState<Database>(seed);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [selectedBranches, setSelectedBranchesState] = useState<string[] | null>(null);
-  const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
 
   const persistDb = useCallback((next: Database) => {
     try {
@@ -213,10 +159,6 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     persistDb(loaded);
     setDb(loaded);
 
-    const users = loadAuthUsers();
-    persistAuthUsers(users);
-    setAuthUsers(users);
-
     try {
       const sel = JSON.parse(localStorage.getItem(SEL_KEY) || "null");
       setSelectedBranchesState(Array.isArray(sel) && sel.length ? sel : null);
@@ -224,114 +166,38 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
       setSelectedBranchesState(null);
     }
 
-    try {
-      const remembered = getRememberedEmail();
-      const sessionUser = sessionStorage.getItem(AUTH_KEY);
-      setCurrentUser(remembered || sessionUser);
-      if (remembered) {
-        sessionStorage.setItem(AUTH_KEY, remembered);
-      }
-    } catch {
-      setCurrentUser(null);
-    }
-
-    setReady(true);
+    fetch("/api/auth/session")
+      .then(async (res) => {
+        if (!res.ok) {
+          setCurrentUser(null);
+          return;
+        }
+        const data = (await res.json()) as { user?: { email?: string } };
+        setCurrentUser(data.user?.email ?? null);
+      })
+      .catch(() => setCurrentUser(null))
+      .finally(() => setReady(true));
   }, [persistDb]);
 
-  const verifyCredentials = useCallback(
-    (id: string, password: string) => {
-      const email = id.trim().toLowerCase();
-      const user = authUsers.find((x) => x.email === email);
-      if (!user || user.password !== password) return "Invalid email or password";
-      if (user.status !== "active") return "This account is inactive.";
-      return null;
-    },
-    [authUsers],
-  );
+  const setSessionUser = useCallback((email: string | null) => {
+    setCurrentUser(email ? email.trim().toLowerCase() : null);
+  }, []);
 
-  const completeLogin = useCallback(
-    (emailRaw: string, options?: { remember?: boolean }) => {
-      const email = emailRaw.trim().toLowerCase();
-      const user = authUsers.find((x) => x.email === email);
-      if (!user) return;
-      setCurrentUser(user.email);
+  const logout = useCallback(
+    async (options?: { timedOut?: boolean }) => {
       try {
-        sessionStorage.setItem(AUTH_KEY, user.email);
-        localStorage.setItem(
-          AUTH_META_KEY,
-          JSON.stringify({ email: user.email, at: Date.now() }),
-        );
-        if (options?.remember) setRememberedEmail(user.email);
-        else clearRememberedEmail();
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ timedOut: Boolean(options?.timedOut) }),
+        });
       } catch {
-        /* ignore */
+        /* ignore network errors on logout */
       }
-      setDb((prev) => {
-        const next = structuredClone(prev);
-        auditInto(
-          next,
-          user.role === "admin" ? "Admin login" : "User login",
-          `${user.email} signed in`,
-          user.email,
-        );
-        persistDb(next);
-        return next;
-      });
+      setCurrentUser(null);
     },
-    [auditInto, authUsers, persistDb],
+    [],
   );
-
-  const login = useCallback(
-    (id: string, password: string, options?: { remember?: boolean }) => {
-      const err = verifyCredentials(id, password);
-      if (err) return err;
-      completeLogin(id, options);
-      return null;
-    },
-    [completeLogin, verifyCredentials],
-  );
-
-  const register = useCallback(
-    (name: string, email: string, password: string) => {
-      const trimmedName = name.trim();
-      const normalized = email.trim().toLowerCase();
-      if (!trimmedName) return "Please enter your name.";
-      if (authUsers.some((x) => x.email === normalized)) return "This email is already registered.";
-      if (password.length < 4) return "Password must be at least 4 characters.";
-      const nextUsers: AuthUser[] = [
-        ...authUsers,
-        {
-          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-          name: trimmedName,
-          email: normalized,
-          password,
-          role: "user",
-          status: "active",
-        },
-      ];
-      setAuthUsers(nextUsers);
-      persistAuthUsers(nextUsers);
-      return null;
-    },
-    [authUsers],
-  );
-
-  const logout = useCallback(() => {
-    setDb((prev) => {
-      const next = structuredClone(prev);
-      auditInto(next, "Logout", `${currentUser || "user"} signed out`, currentUser || "user");
-      persistDb(next);
-      return next;
-    });
-    setCurrentUser(null);
-    try {
-      sessionStorage.removeItem(AUTH_KEY);
-      localStorage.removeItem(AUTH_META_KEY);
-      clearRememberedEmail();
-    } catch {
-      /* ignore */
-    }
-  }, [auditInto, currentUser, persistDb]);
 
   const setSelectedBranches = useCallback((names: string[] | null) => {
     setSelectedBranchesState(names);
@@ -487,10 +353,7 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
       toast,
       selectedBranches,
       showToast,
-      login,
-      verifyCredentials,
-      completeLogin,
-      register,
+      setSessionUser,
       logout,
       setSelectedBranches,
       saveCompany,
@@ -511,10 +374,7 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
       toast,
       selectedBranches,
       showToast,
-      login,
-      verifyCredentials,
-      completeLogin,
-      register,
+      setSessionUser,
       logout,
       setSelectedBranches,
       saveCompany,

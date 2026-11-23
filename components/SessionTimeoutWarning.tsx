@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { SESSION_IDLE_MS, SESSION_WARN_MS } from "@/lib/auth-security";
+import { SESSION_IDLE_MS, SESSION_WARN_MS } from "@/lib/auth/messages";
 import { usePharmacy } from "@/context/PharmacyContext";
 
 export function SessionTimeoutWarning() {
@@ -10,6 +10,7 @@ export function SessionTimeoutWarning() {
   const [secondsLeft, setSecondsLeft] = useState(60);
   const lastActive = useRef(Date.now());
   const warned = useRef(false);
+  const lastTouch = useRef(0);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -19,6 +20,11 @@ export function SessionTimeoutWarning() {
       if (warned.current) {
         warned.current = false;
         setOpen(false);
+      }
+      // Keep server session lastActive fresh (throttled).
+      if (Date.now() - lastTouch.current > 60_000) {
+        lastTouch.current = Date.now();
+        void fetch("/api/auth/session").catch(() => undefined);
       }
     };
 
@@ -36,7 +42,7 @@ export function SessionTimeoutWarning() {
       const remaining = SESSION_IDLE_MS - idle;
       if (remaining <= 0) {
         setOpen(false);
-        logout();
+        void logout({ timedOut: true });
         return;
       }
       if (remaining <= SESSION_WARN_MS) {

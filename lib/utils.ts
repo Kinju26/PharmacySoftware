@@ -1,10 +1,6 @@
 export const DB_KEY = "canadian_pharmacy_os_demo_v1";
 export const SEL_KEY = "canadian_pharmacy_branch_sel_v1";
 export const AUTH_KEY = "canadian_pharmacy_os_session_v1";
-export const AUTH_META_KEY = "canadian_pharmacy_os_session_meta_v1";
-export const KJ_KEY = "kinjal_users_v1";
-export const KJ_ADMIN_EMAIL = "admin@kinjal.com";
-export const KJ_ADMIN_PASS = "admin";
 
 export const money = (n: number) =>
   new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Number(n) || 0);

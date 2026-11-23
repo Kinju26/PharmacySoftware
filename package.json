@@ -8,14 +8,22 @@
     "start": "next start"
   },
   "dependencies": {
+    "argon2": "^0.45.2",
+    "jose": "^6.2.18",
     "next": "^16.0.3",
+    "otplib": "^13.6.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.19.1",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "typescript": "^5.9.3"
+  },
+  "allowScripts": {
+    "argon2@0.45.2": true
   }
 }

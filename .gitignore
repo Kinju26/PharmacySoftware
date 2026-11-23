@@ -5,3 +5,6 @@ out
 *.log
 _extracted
 _extract.js
+.env
+.env.local
+data/

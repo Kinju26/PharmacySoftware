@@ -89,7 +89,12 @@ export function Sidebar() {
             {item.label}
           </Link>
         ))}
-        <button type="button" onClick={logout}>
+        <button
+          type="button"
+          onClick={() => {
+            void logout();
+          }}
+        >
           <span className="ico">↪</span>Sign Out
         </button>
       </nav>

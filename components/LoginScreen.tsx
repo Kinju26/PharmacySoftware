@@ -4,41 +4,24 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeClosedIcon, EyeOpenIcon } from "@/components/icons";
 import LoginMascot from "@/components/LoginMascot";
-import {
-  clearFailedAttempts,
-  createOtp,
-  getRememberedEmail,
-  lockoutMessage,
-  recordFailedAttempt,
-  verifyOtp,
-} from "@/lib/auth-security";
+import { GENERIC_AUTH_ERROR } from "@/lib/auth/messages";
 import { usePharmacy } from "@/context/PharmacyContext";
 
-type Step = "credentials" | "otp" | "location";
+type Step = "credentials" | "location";
 
 export function LoginScreen() {
-  const { ready, currentUser, verifyCredentials, completeLogin, branchNames, setSelectedBranches, showToast } =
-    usePharmacy();
+  const { ready, currentUser, setSessionUser, branchNames, setSelectedBranches } = usePharmacy();
   const router = useRouter();
   const [step, setStep] = useState<Step>("credentials");
   const [loginMsg, setLoginMsg] = useState("");
   const [showLoginPass, setShowLoginPass] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
   const [pwFocus, setPwFocus] = useState(false);
-  const [otp, setOtp] = useState("");
   const [location, setLocation] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const multiLocation = branchNames.length > 1;
-
-  useEffect(() => {
-    const remembered = getRememberedEmail();
-    if (remembered) {
-      setEmail(remembered);
-      setRemember(true);
-    }
-  }, []);
 
   useEffect(() => {
     if (ready && currentUser) router.replace("/dashboard");
@@ -52,8 +35,6 @@ export function LoginScreen() {
     switch (step) {
       case "credentials":
         return "Sign in to continue to your account.";
-      case "otp":
-        return "Enter the 6-digit verification code sent to your email.";
       case "location":
         return "Select the pharmacy location you are working at today.";
       default: {
@@ -63,49 +44,42 @@ export function LoginScreen() {
     }
   }, [step]);
 
-  function finishLogin() {
-    if (location) setSelectedBranches([location]);
-    else if (branchNames.length === 1) setSelectedBranches([branchNames[0]]);
-    completeLogin(email, { remember });
+  function goAfterAuth(userEmail: string) {
+    setSessionUser(userEmail);
+    if (multiLocation) {
+      setStep("location");
+      setLoginMsg("");
+      return;
+    }
+    if (branchNames.length === 1) setSelectedBranches([branchNames[0]]);
     router.push("/dashboard");
   }
 
-  function onCredentials(e: FormEvent<HTMLFormElement>) {
+  async function onCredentials(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const locked = lockoutMessage();
-    if (locked) {
-      setLoginMsg(locked);
-      return;
-    }
-    const err = verifyCredentials(email, password);
-    if (err) {
-      setLoginMsg(recordFailedAttempt());
-      return;
-    }
-    clearFailedAttempts();
-    const code = createOtp(email);
-    showToast(`Verification code: ${code}`);
-    setLoginMsg(`Demo code: ${code}`);
-    setOtp("");
-    setStep("otp");
-  }
-
-  function onOtp(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!/^\d{6}$/.test(otp.trim())) {
-      setLoginMsg("Enter the 6-digit verification code.");
-      return;
-    }
-    if (!verifyOtp(email, otp)) {
-      setLoginMsg("Invalid or expired code. Please try again.");
-      return;
-    }
+    setBusy(true);
     setLoginMsg("");
-    if (multiLocation) {
-      setStep("location");
-      return;
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        user?: { email: string };
+      };
+      if (!res.ok || !data.user) {
+        setLoginMsg(data.error || GENERIC_AUTH_ERROR);
+        return;
+      }
+      setPassword("");
+      goAfterAuth(data.user.email);
+    } catch {
+      setLoginMsg(GENERIC_AUTH_ERROR);
+    } finally {
+      setBusy(false);
     }
-    finishLogin();
   }
 
   function onLocation(e: FormEvent<HTMLFormElement>) {
@@ -114,8 +88,9 @@ export function LoginScreen() {
       setLoginMsg("Please select a pharmacy location.");
       return;
     }
+    setSelectedBranches([location]);
     setLoginMsg("");
-    finishLogin();
+    router.push("/dashboard");
   }
 
   return (
@@ -154,7 +129,7 @@ export function LoginScreen() {
                     name="email"
                     type="text"
                     autoComplete="username"
-                    placeholder="you@pharmacy.com"
+                    placeholder="admin@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -183,16 +158,7 @@ export function LoginScreen() {
                     </button>
                   </div>
                 </div>
-                <div className="form-row">
-                  <label className="remember">
-                    <input
-                      type="checkbox"
-                      name="remember"
-                      checked={remember}
-                      onChange={(e) => setRemember(e.target.checked)}
-                    />{" "}
-                    Remember this device for 7 days
-                  </label>
+                <div className="form-row form-row-end">
                   <a
                     href="#"
                     className="link"
@@ -204,44 +170,8 @@ export function LoginScreen() {
                     Forgot password?
                   </a>
                 </div>
-                <button className="primary" type="submit">
+                <button className="primary" type="submit" disabled={busy}>
                   Sign In
-                </button>
-                <div className="message" aria-live="polite">
-                  {loginMsg}
-                </div>
-              </form>
-            )}
-
-            {step === "otp" && (
-              <form onSubmit={onOtp} noValidate>
-                <div className="field">
-                  <label htmlFor="loginOtp">Verification code</label>
-                  <input
-                    id="loginOtp"
-                    name="otp"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    placeholder="6-digit code"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  />
-                </div>
-                <button className="primary" type="submit">
-                  Verify code
-                </button>
-                <button
-                  type="button"
-                  className="link-btn"
-                  onClick={() => {
-                    setStep("credentials");
-                    setOtp("");
-                    setLoginMsg("");
-                  }}
-                >
-                  Back to sign in
                 </button>
                 <div className="message" aria-live="polite">
                   {loginMsg}
